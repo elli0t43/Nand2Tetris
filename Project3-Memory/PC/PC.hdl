@@ -1,0 +1,40 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/3/a/PC.hdl
+/**
+ * A 16-bit counter.
+ * if      reset(t): out(t+1) = 0
+ * else if load(t):  out(t+1) = in(t)
+ * else if inc(t):   out(t+1) = out(t) + 1
+ * else              out(t+1) = out(t)
+ */
+CHIP PC {
+    IN in[16], reset, load, inc;
+    OUT out[16];
+    /*
+    First of all we are supposed to check whether we are supposed to load or not, but before that we also need to figure out the reigster output currently holds.
+    We can use a simple mux to switch between register out and in, now we also have inc operation
+    SO even before checking for load mux, we need to first check which one to use inc or normal registerout.
+
+    Now what we can do is, first check whether to inc or keep the value as it is (register value)
+
+    then we can feed that into a load mux, where we load the value or keep the value as it is
+    
+    and finally we can do the reset check
+
+
+    Now coming to the regiser, it can only take 
+    */
+    PARTS:
+    Inc16(in=registerOut, out=incOut);
+    Mux16(a=registerOut, b=incOut, sel=inc, out=muxOut1);
+    Mux16(a=muxOut1, b=in, sel=load, out=muxOut2); 
+    Mux16(a=muxOut2, b=false, sel=reset, out=muxOut3);
+
+
+    Or(a=load, b=reset, out=loadORreset);
+    Or(a=loadORreset, b=inc, out=loadORresetORinc);
+    Register(in=muxOut3, load=loadORresetORinc, out=out, out=registerOut);
+
+}
