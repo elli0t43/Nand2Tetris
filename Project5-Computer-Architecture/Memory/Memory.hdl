@@ -30,6 +30,10 @@ CHIP Memory {
     // and the 2nd one is for screen, rest for ram
     // here its screenOrRam because screen is essentially a memory mapped I/O device, which behaves like a ram
     // SCREEN[1] and RAM[16385] are the same thing
+
+    /* https://docs.google.com/spreadsheets/d/1PfpKKVa2IlcVg84gLZ63PmwzRfYH8UkdqfvKe_4gJ0k/edit?gid=0#gid=0
+    */
+
     /*
     000 0000 0000 0000 - RAM[0] 
     011 1111 1111 1111 - RAM[16383]
