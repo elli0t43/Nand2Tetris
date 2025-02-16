@@ -32,5 +32,94 @@ CHIP CPU {
         pc[15];          // address of next instruction
 
     PARTS:
+    /*
+        15 14 13 12 11 10 9 8 7 6 5 4 3 2 1 0
+         1  1  1  a  c  c c c c c d d d j j j
+    */
+    // in a instruction's binary form, the MSB or the left most bit is the family of instruction
+    // meaning 0 = A instruction, 1 = C instruction
+    // Determining Instruction type
+    Not(in=instruction[15], out=Ainstruction);
+    Not(in=Ainstruction, out=Cinstruction); // basically instruction[15] = Cinstruction
 
+    // Value to A register
+    // if ddd = 100
+    // instruction[5]
+    And(a=Cinstruction, b=instruction[5], out=ARegisterSelect);
+    Mux16(a=instruction, b=ALUout, sel=ARegisterSelect, out=ARegisterIn);
+    
+    // storing it into A register
+    Or(a=Ainstruction, b=ARegisterSelect, out=ARegisterLoad); // Load A if A instruction or C instruction & destination to A register
+    ARegister(in=ARegisterIn, load=ARegisterLoad, out=ARegisterOut);
+
+    // Areg out and inM
+    // A or M 
+    // a bit / instruction[12] = 0
+    Mux16(a=ARegisterOut, b=inM, sel=instruction[12], out=AorMout);
+
+    // Value to D register
+    // if ddd = 010
+    // instruction[4]
+    And(a=Cinstruction, b=instruction[4], out=DRegisterSelect);
+    DRegister(in=ALUout, load=DRegisterSelect, out=DRegisterOut);
+
+    // ALU 
+    ALU(x=DRegisterOut, y=AorMout, zx=instruction[11], nx=instruction[10], zy=instruction[9], ny=instruction[8], f=instruction[7], no=instruction[6], out=ALUout, zr=zrOut, ng=ngOut);
+    
+    // WriteM 
+    // Writing to Memory
+    // ddd = 001
+    And(a=Cinstruction, b=instruction[3], out=writeM);
+
+    //addressM and outM
+    Or16(a=false, b=ARegisterOut, out[0..14]=addressM); // only takes first 15 bit, since address is 15 bit value and since we can't directly do outM=ARegisterOut, could also do it in the ALU itself, like out=ALUout, out=outM but ehhh
+    Or16(a=false, b=ALUout, out=outM);
+
+
+    //Handling Jumps
+    // Jump will be taken into account with the specific instruction value, and zr/ng
+    /*
+    TO make it easier to understand
+    jjj     instruction     main condition      Reason
+    000     Null            null
+    001     JGT             zr=0 and ng = 0     since output is non-zero and not negative
+    010     JEQ             zr=1                Since output is zero, and it means we want to jump if its zero
+    011     JGE             zr=1 OR !ng         since it can either be zero or can be greather than zero, which means both zr and ng is zero
+    100     JLT             ng=1                Since ng=1 means the value is negative which is smallers than zero
+    101     JNE             zr=0                Simply not zero
+    110     JLE             zr=1 OR ng=1 
+    111     JMP             always true         simply jump
+    */
+
+    // zr and ng can never be 1 at the same time, it can either be zr=1 or ng=1
+    
+    Or(a=zrOut, b=ngOut, out=zrORngOut);
+    Not(in=zrORngOut, out=notzrORngOut);
+
+    And(a=notzrORngOut, b=instruction[0], out=JGT);
+    And(a=zrOut, b=instruction[1], out=JEQ);
+    
+    /*
+    Not(in=ngOut, out=notngOut);
+    And(a=instruction[1], b=notngOut, out=JGE);
+    */
+
+    Or(a=JEQ, b=JGT, out=JGE);
+
+    And(a=ngOut, b=instruction[2], out=JLT);
+    And(a=zrOut, b=instruction[0], out=JNE);
+
+    Or(a=JEQ, b=JLT, out=JLE);
+
+    // now in theory, simple jump is just simply jumping without checking any conditions, meaning we won't really need any condition here, but there's a problem if we just do AND between the 3 bits of jjj, it will make it so regardless of any checks it will always be jump, which is not something we want, but we can take use of JLE and JGE, since the value can either be greater than or equal to 0 or can be  less than or equal to 0
+    Or(a=JGE, b=JLE, out=JMP);
+    
+    // now we need to make sure jump only happens if its a C instruction 
+    And(a=Cinstruction, b=JMP, out=pcSelect);
+    // If PCload = 1 (a jump is happening), PCinc = 0 (don’t increment).
+    // If PCload = 0 (no jump), PCinc = 1 (increment PC normally).
+    Not(in=pcSelect, out=pcIncrement);
+
+    // Setting program counter
+    PC(in=ARegisterOut, load=pcSelect, inc=pcIncrement, reset=reset, out[0..14]=pc);
 }
