@@ -9,7 +9,7 @@
 #include <bitset>
 #include <cctype>
 #include "colors.h"
-
+#include "instrumenter.h"
 
 struct symbolTableRecord{
     std::string symbolName;
@@ -25,6 +25,7 @@ struct instructionTableRecord{
 };
 
 void appendToFile(std::string content, std::string fileName, bool append){
+    InstrumentationTimer timer("appendToFile");
     std::ofstream outFile;
     if(append){
         outFile.open(fileName, std::ios_base::app);
@@ -40,6 +41,7 @@ void appendToFile(std::string content, std::string fileName, bool append){
 }
 
 std::string labelStrip(std::string inputString){
+    InstrumentationTimer timer("labelStrip");
     std::string strippedSymbol{""}; 
     int inputLength = inputString.length();
     for (int i{1}; i<inputLength-1; ++i){
@@ -49,6 +51,7 @@ std::string labelStrip(std::string inputString){
 }
 
 std::string aInstructionStrip(std::string inputString){
+    InstrumentationTimer timer("aInstructionStrip");
     std::string strippedSymbol{""}; 
     int inputLength = inputString.length();
     for (int i{1}; i<inputLength; ++i){
@@ -59,28 +62,37 @@ std::string aInstructionStrip(std::string inputString){
 
 // TODO: need to check these are bug free or not
 std::string getFirstPart(std::string inputString, std::string key){
+    InstrumentationTimer timer("getFirstPart");
     std::string output{""};
     int inputLength = inputString.length();
-    int keyLocation = inputString.find(key);
-    for (int i{0}; i<keyLocation; i++){
-        output += inputString[i];
-    }
+    int keyLocation{0};
+    // if(inputString.find(key) != std::string::npos){
+        keyLocation = inputString.find(key);
+        for (int i{0}; i<keyLocation; i++){
+            output += inputString[i];
+        }
+    // }
     return output;
 }
 
 // TODO: need to check if these are bug free or not
 std::string getSecondPart(std::string inputString, std::string key){
+    InstrumentationTimer timer("getSecondPart");
     std::string output{""};
     int inputLength = inputString.length();
-    int keyLocation = inputString.find(key);
-    for (int i{keyLocation+1}; i<inputLength; i++){
+    int keyLocation{0};
+    // if (inputString.find(key) != std::string::npos){
+        keyLocation = inputString.find(key);
+        for (int i{keyLocation+1}; i<inputLength; i++){
         output += inputString[i];
-    }
+        }
+    // }
     return output;
 }
 
 
 bool isComment(std::string inputString){
+    InstrumentationTimer timer("isComment");
     if (inputString.front() == '/' && inputString[1] == '/' || inputString.front() == '/' && inputString[1] == '*' || inputString.front() == '*' && inputString.back() == '/'){
         return true;
     }else{
@@ -89,6 +101,7 @@ bool isComment(std::string inputString){
 }
 
 bool isAInstruction(std::string inputString){
+    InstrumentationTimer timer("isAInstruction");
     if (inputString.front() == '@'){
         return true;
     }else{
@@ -97,6 +110,7 @@ bool isAInstruction(std::string inputString){
 }
 
 bool isLabel(std::string inputString){
+    InstrumentationTimer timer("isLabel");
     std::regex labelPattern("\\([a-zA-Z\\_].*");
     //std::regex labelPattern("/[a-zA-Z_].*/gm");
     if (inputString.front() == '(' && inputString.back() == ')'){
@@ -111,12 +125,14 @@ bool isLabel(std::string inputString){
 }
 
 void remove_whitespace(std::string inputString){
+    InstrumentationTimer timer("remove_whitespace");
     // inputString.erase(remove(inputString.begin(), inputString.end(), " "), inputString.end());
     inputString.erase(std::remove_if(inputString.begin(), inputString.end(), isspace), inputString.end());
 }
 
 // fancy name for string concatinate LMAO
 std::string construct_machine_code(std::string string1, std::string string2, bool aFlag, bool jumpFlag){
+    InstrumentationTimer timer("construct_machine_code");
     std::string output;
     output.append("111");
     if (aFlag == true){
@@ -149,6 +165,7 @@ std::string construct_machine_code(std::string string1, std::string string2, boo
 
 
 void validate_asm(std::string inputFileName, std::string outputFileName){
+    InstrumentationTimer timer("validate_asm");
     std::unordered_map<std::string, symbolTableRecord> symbolTableMap;
     std::unordered_map<std::string, instructionTableRecord> cInstructionTableMap;
     std::unordered_map<std::string, instructionTableRecord> dInstructionTableMap;
@@ -360,34 +377,29 @@ void validate_asm(std::string inputFileName, std::string outputFileName){
 
                 std::cout << red << "[DEBUG] FirstPart: " << yellow <<  firstPart1 << red << " Second part: " << yellow << secondPart1 << "\n";
                 std::cout << red << "[DEBUG] FirstPart2: " << yellow << firstPart2 << red << " Second part2: " << yellow << secondPart2 << "\n";
-                switch(pass2InputString.find(";")){
-                    case 0xFFFFFFFF:
-                        std::cout << green << "[2] C instruction based on \"=\" key \n";
-                        if (getSecondPart(pass2InputString, "=").find("M") != 0xFFFFFFFF){
-                            std::cout << red << "[DEBUG] M found!\n";
-                            machineCode = construct_machine_code(cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary, dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary, true, false);
-                            std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary << white << "-"  << white << yellow << dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary << "\n";
+                if(pass2InputString.find(";") == std::string::npos){
+                    std::cout << green << "[2] C instruction based on \"=\" key \n";
+                    if (getSecondPart(pass2InputString, "=").find("M") != std::string::npos){
+                        std::cout << red << "[DEBUG] M found!\n";
+                        machineCode = construct_machine_code(cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary, dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary, true, false);
+                        std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary << white << "-"  << white << yellow << dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary << "\n";
 
-                            std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
-                            appendToFile(machineCode, outputFileName, true);
-                            break;
-                        }else{
-                            machineCode = construct_machine_code(cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary, dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary, false, false);
-                            std::cout << red << "[DEBUG] M not found!\n";
-                            std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary << white << "-"  << white << yellow << dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary << "\n";
-                            std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
-                            appendToFile(machineCode, outputFileName, true);
-                            break;
-                        }
-
-                    default:
-                        std::cout << green << "[2] C instruction found based on ; key (JUMP) \n";
-                            std::cout << red << "[DEBUG] FOUND M\n";
-                            machineCode = construct_machine_code(cInstructionTableMap[getFirstPart(pass2InputString, ";")].addressBinary, jInstructionTableMap[getSecondPart(pass2InputString, ";")].addressBinary,false, true);
-                            std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, ";")].addressBinary << white << "-"  << white << yellow << jInstructionTableMap[getFirstPart(pass2InputString, ";")].addressBinary << "\n";
-                            std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
-                            appendToFile(machineCode, outputFileName, true);
-                        continue;
+                        std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
+                        appendToFile(machineCode, outputFileName, true);
+                    }else{
+                        machineCode = construct_machine_code(cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary, dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary, false, false);
+                        std::cout << red << "[DEBUG] M not found!\n";
+                        std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, "=")].addressBinary << white << "-"  << white << yellow << dInstructionTableMap[getFirstPart(pass2InputString, "=")].addressBinary << "\n";
+                        std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
+                        appendToFile(machineCode, outputFileName, true);
+                    }
+                }else{
+                    std::cout << green << "[2] C instruction found based on ; key (JUMP) \n";
+                    std::cout << red << "[DEBUG] FOUND M\n";
+                    machineCode = construct_machine_code(cInstructionTableMap[getFirstPart(pass2InputString, ";")].addressBinary, jInstructionTableMap[getSecondPart(pass2InputString, ";")].addressBinary,false, true);
+                    std::cout << red << "[DEBUG] C instruction address: " << yellow << cInstructionTableMap[getSecondPart(pass2InputString, ";")].addressBinary << white << "-"  << white << yellow << jInstructionTableMap[getFirstPart(pass2InputString, ";")].addressBinary << "\n";
+                    std::cout << red << "[DEBUG] Maching code: " << yellow <<  machineCode << "\n";
+                    appendToFile(machineCode, outputFileName, true);
                 }
             }
 
@@ -403,6 +415,7 @@ void validate_asm(std::string inputFileName, std::string outputFileName){
 
 
 int main(){
+    Instrumentor::Get().BeginSession("Test");
     std::string inputfileName{"null"};
     std::string outputFileName{"null"};
 
@@ -410,7 +423,7 @@ int main(){
     std::cin >> inputfileName;
 
     validate_asm(inputfileName, outputFileName);
-
+    Instrumentor::Get().EndSession();
     return 0;
 }
 
